@@ -15,6 +15,13 @@
       "when": 1791242528088,
       "tag": "0001_entries_recycle_bin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791242540066,
+      "tag": "0002_fix_bin_password",
+      "breakpoints": true
     }
   ]
 }
