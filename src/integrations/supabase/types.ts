@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          deleted_at: string | null
           description: string
           entry_date: string
           id: string
@@ -28,6 +29,7 @@ export type Database = {
         Insert: {
           category: string
           created_at?: string
+          deleted_at?: string | null
           description: string
           entry_date: string
           id: string
@@ -38,6 +40,7 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          deleted_at?: string | null
           description?: string
           entry_date?: string
           id?: string
@@ -52,7 +55,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      bin_password_ok: { Args: { _pw: string }; Returns: boolean }
+      purge_entries: { Args: { _ids: string[]; _pw: string }; Returns: number }
+      restore_entries: {
+        Args: { _ids: string[]; _pw: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

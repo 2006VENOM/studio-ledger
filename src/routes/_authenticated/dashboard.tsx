@@ -11,6 +11,7 @@ import {
   PackageCheck,
   Plus,
   ReceiptText,
+  RotateCcw,
   ShoppingBag,
   Trash2,
   TrendingUp,
@@ -66,6 +67,7 @@ type EntryRow = {
   qty: number;
   unit_price: number;
   created_at: string;
+  deleted_at: string | null;
 };
 
 type LocalEntry = { id: string; category: Category; date: string; description: string; qty: number; price: number };
@@ -99,7 +101,7 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("entries")
-        .select("id,user_id,category,entry_date,description,qty,unit_price,created_at")
+        .select("id,user_id,category,entry_date,description,qty,unit_price,created_at,deleted_at")
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -107,7 +109,15 @@ function Dashboard() {
     },
   });
 
-  const entries = useMemo(() => entriesQuery.data ?? [], [entriesQuery.data]);
+  const allRows = useMemo(() => entriesQuery.data ?? [], [entriesQuery.data]);
+  const entries = useMemo(() => allRows.filter((entry) => !entry.deleted_at), [allRows]);
+  const binned = useMemo(
+    () => allRows.filter((entry) => entry.deleted_at).sort((a, b) => (b.deleted_at ?? "").localeCompare(a.deleted_at ?? "")),
+    [allRows],
+  );
+  const [menuTab, setMenuTab] = useState<"records" | "bin">("records");
+  const [binPassword, setBinPassword] = useState("");
+  const [binMessage, setBinMessage] = useState("");
 
   // One-time move of records saved on this device into the cloud account.
   const migrating = useRef(false);
@@ -210,14 +220,37 @@ function Dashboard() {
   };
 
   const deleteEntry = async (id: string) => {
-    const { error } = await supabase.from("entries").delete().eq("id", id);
+    const { error } = await supabase.from("entries").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+    if (error) return;
+    queryClient.invalidateQueries({ queryKey: ["entries"] });
+    flash("Moved to bin");
+  };
+
+  const binAction = async (kind: "restore" | "purge", ids: string[]) => {
+    if (ids.length === 0) return;
+    if (!binPassword) {
+      setBinMessage("Enter the bin password first.");
+      return;
+    }
+    if (kind === "purge" && !window.confirm(`Permanently delete ${ids.length} record(s)? This cannot be undone.`)) return;
+    const { error } = await supabase.rpc(kind === "restore" ? "restore_entries" : "purge_entries", { _ids: ids, _pw: binPassword });
+    if (error) {
+      setBinMessage("Wrong password.");
+      return;
+    }
+    setBinMessage(kind === "restore" ? `${ids.length} record(s) restored.` : `${ids.length} record(s) permanently deleted.`);
+    queryClient.invalidateQueries({ queryKey: ["entries"] });
+  };
+
+  const _unusedDelete = async (id: string) => {
+    const { error } = await supabase.from("entries").update({}).eq("id", id);
     if (error) return;
     queryClient.invalidateQueries({ queryKey: ["entries"] });
   };
 
   const clearAllRecords = async () => {
-    if (!window.confirm("Delete ALL sales and expense records? This cannot be undone.")) return;
-    const { error } = await supabase.from("entries").delete().neq("id", NIL_UUID);
+    if (!window.confirm("Move ALL sales and expense records to the bin?")) return;
+    const { error } = await supabase.from("entries").update({ deleted_at: new Date().toISOString() }).is("deleted_at", null).neq("id", NIL_UUID);
     if (error) return;
     queryClient.invalidateQueries({ queryKey: ["entries"] });
   };
@@ -266,6 +299,48 @@ function Dashboard() {
                   <SheetTitle className="font-display text-xl uppercase">Other records</SheetTitle>
                   <SheetDescription>Purchases and studio expenses stay here, away from your sales screen.</SheetDescription>
                 </SheetHeader>
+
+                <div className="mt-5 grid grid-cols-2 border border-border">
+                  {(["records", "bin"] as const).map((tab) => (
+                    <button key={tab} type="button" onClick={() => setMenuTab(tab)}
+                      className={`h-11 font-mono text-xs uppercase ${menuTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                      {tab === "records" ? "Expenses" : `Bin (${binned.length})`}
+                    </button>
+                  ))}
+                </div>
+
+                {menuTab === "bin" ? (
+                  <div className="mt-6 space-y-4">
+                    <div className="border border-border bg-card p-4">
+                      <p className="text-xs text-muted-foreground">Records in the bin are not counted in any totals. Enter the bin password to restore or permanently delete them.</p>
+                      <input className="tech-input mt-3" type="password" placeholder="Bin password" value={binPassword} onChange={(e) => { setBinPassword(e.target.value); setBinMessage(""); }} />
+                      {binMessage && <p className="mt-2 font-mono text-xs text-primary">{binMessage}</p>}
+                      {binned.length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <Button variant="outline" className="h-10" onClick={() => binAction("restore", binned.map((e) => e.id))}><RotateCcw /> Restore all</Button>
+                          <Button variant="destructive" className="h-10" onClick={() => binAction("purge", binned.map((e) => e.id))}><Trash2 /> Delete all</Button>
+                        </div>
+                      )}
+                    </div>
+                    {binned.length === 0 && <p className="border border-dashed border-border p-5 text-center text-sm text-muted-foreground">The bin is empty.</p>}
+                    {binned.map((entry) => (
+                      <div key={entry.id} className="border border-border bg-card p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">{entry.description}</p>
+                            <p className="text-[10px] uppercase text-muted-foreground">{entry.category} · Date {entry.entry_date}</p>
+                            <p className="mt-1 font-mono text-[11px] text-muted-foreground">{entry.qty} × {naira(entry.unit_price)} = <span className="text-foreground">{naira(entry.qty * entry.unit_price)}</span></p>
+                            <p className="font-mono text-[10px] text-muted-foreground">Added {new Date(entry.created_at).toLocaleString("en-NG")} · Deleted {new Date(entry.deleted_at ?? "").toLocaleString("en-NG")}</p>
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => binAction("restore", [entry.id])} aria-label={`Restore ${entry.description}`}><RotateCcw /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => binAction("purge", [entry.id])} aria-label={`Permanently delete ${entry.description}`}><Trash2 className="text-destructive" /></Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (<>
 
                 <form onSubmit={addExpense} className="mt-6 space-y-4 border border-border bg-card p-4">
                   <p className="font-mono text-xs uppercase text-muted-foreground">Add expense record</p>
@@ -318,6 +393,7 @@ function Dashboard() {
                     <Trash2 /> Clear all records
                   </Button>
                 </div>
+                </>)}
               </SheetContent>
             </Sheet>
             <Button variant="outline" size="icon" onClick={handleSignOut} aria-label="Sign out" title="Sign out">
