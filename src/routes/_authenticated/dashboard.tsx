@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -496,6 +496,9 @@ function Dashboard() {
                       ))}
                     </tbody>
                   </table>
+                  <Link to="/records" className="block border-t border-border px-4 py-3 text-center font-mono text-xs uppercase text-primary hover:bg-primary/10">
+                    … read more
+                  </Link>
                 </div>
               )}
             </div>
