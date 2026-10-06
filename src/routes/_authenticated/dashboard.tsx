@@ -242,12 +242,6 @@ function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ["entries"] });
   };
 
-  const _unusedDelete = async (id: string) => {
-    const { error } = await supabase.from("entries").update({}).eq("id", id);
-    if (error) return;
-    queryClient.invalidateQueries({ queryKey: ["entries"] });
-  };
-
   const clearAllRecords = async () => {
     if (!window.confirm("Move ALL sales and expense records to the bin?")) return;
     const { error } = await supabase.from("entries").update({ deleted_at: new Date().toISOString() }).is("deleted_at", null).neq("id", NIL_UUID);
