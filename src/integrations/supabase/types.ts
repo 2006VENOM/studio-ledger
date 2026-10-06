@@ -23,6 +23,7 @@ export type Database = {
           entry_date: string
           id: string
           qty: number
+          receipt_path: string | null
           unit_price: number
           user_id: string
         }
@@ -34,6 +35,7 @@ export type Database = {
           entry_date: string
           id: string
           qty?: number
+          receipt_path?: string | null
           unit_price?: number
           user_id: string
         }
@@ -45,6 +47,7 @@ export type Database = {
           entry_date?: string
           id?: string
           qty?: number
+          receipt_path?: string | null
           unit_price?: number
           user_id?: string
         }
