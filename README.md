@@ -1,62 +1,95 @@
-# Studio Ledger
+# ONUR CO-OPPORATION — Sales Command
 
-can you
-Build a modern, responsive, mobile-first Web Application for tracking daily business activities, material purchases, and sales records. The design should feel sleek, industrial, and minimal—suited for a custom apparel and fashion design studio.
----
-### 1. UI/UX & Design System
-- **Theme & Color Palette**: Dark Slate (#0f172a), Cool Gray (#f8fafc), Accent Primary (#1e293b), and Success Green (#16a34a).
-- **Typography**: Clean, high-readability sans-serif (Inter, System UI, or Geist).
-- **Layout**: Single-page dashboard layout with a responsive container (max-width: 960px). Mobile-friendly with large touch targets for quick typing.
----
-### 2. Core Features & Functional Requirements
-#### A. Smart Entry Form
-- **Category Selector**: Dropdown options: `Sales`, `Material Purchased`, `Graphics Purchased`, `Accessories`, `Transportation`.
-- **Date Input**: Auto-defaults to today's date, but selectable.
-- **Item Search & Auto-Pricing (Price Catalog)**:
-  - Input field for item description with auto-complete/suggestions.
-  - Automatic price detection: Pre-configure a lookup dictionary so typing standard items (e.g., "Black material" -> 2,300, "Forest material" -> 2,300, "White Flex" -> 1,800, "Joggers rope" -> 100, "Rim black" -> 3,000) automatically populates the Unit Price field.
-  - Allow manual unit price overrides.
-- **Quantity Field**: Number input for yards, pieces, or units (default: 1).
-- **Add Record Button**: Instantly calculates `Total = Quantity x Unit Price` and adds the entry.
-#### B. Categorized Data Display
-- Dynamically render separate, clean data tables for each category (`Sales`, `Material Purchased`, etc.).
-- **Table Columns**: Date, Description, Quantity/Yards, Unit Price (₦), Total (₦), Actions (Delete).
-- Automatically sort records within each table by date (most recent first).
-- Include subtotal calculations at the bottom of every category table.
-- Display a prominent **Grand Total** across all categories at the bottom of the dashboard.
-#### C. Local Storage Persistence
-- Save all entries directly to browser `localStorage` so data persists when refreshed or reopened on mobile or desktop.
-- Provide a "Clear All Records" button with a confirmation popup.
-#### D. Document Export (.doc / Word)
-- Add a prominent "Export Report to .DOC" button.
-- Clicking export generates a clean, well-structured Word-compatible HTML file containing:
-  - Styled headers and report date.
-  - Formatted category tables with borderlines, aligned headers, and subtotal rows.
-  - Currency formatting in Nigerian Naira (₦).
-  - Overall Grand Total block at the end.
----
-### 3. Tech Stack Requirements
-- Framework: Next.js / React with Tailwind CSS (or pure HTML/CSS/JS with Lucide icons if single-file).
-- Client-side document generation (using Blob export or html-docx-js).
-- State management for local storage syncing.
+A sales-first dashboard for recording apparel sales, studio expenses, a password-protected bin, a full records search, and profit & loss charts. Records are saved in a Lovable Cloud database behind a single login.
 
-This project was built with [Lovable](https://lovable.dev).
+## Pages
 
-## Build with Lovable
+| Page | What it does |
+| --- | --- |
+| `/` | Welcome page with a Sign in button |
+| `/auth` | Username + password login (single account) |
+| `/dashboard` | Record sales, metrics, recent sales, menu with expenses and bin |
+| `/records` | All records with category / date / item filters and screenshot uploads |
+| `/reports` | Chart board: spending by type, sold vs spent per day, daily profit & loss |
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/0686d65d-17fd-46d0-95bd-586edc1409d6).
+## Run locally
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+```bash
+bun install      # or: npm install
+bun run dev      # opens http://localhost:8080
 ```
+
+---
+
+## Deploy as a static site on Render (step by step)
+
+The whole app runs in the browser and talks to the cloud database directly, so it can be hosted as a static site.
+
+> Note: this build setup was not tested on Render before being written up. If the site loads blank, check step 1 and the Rewrite rule in step 6 first.
+
+### 1. Switch the build to static (SPA) mode
+
+In `vite.config.ts`, add `spa: { enabled: true }` inside `tanstackStart`:
+
+```ts
+export default defineConfig({
+  tanstackStart: {
+    server: { entry: "server" },
+    spa: { enabled: true },
+  },
+});
+```
+
+Commit and push this change to GitHub.
+
+### 2. Build it once on your computer (optional check)
+
+```bash
+bun install
+bun run build
+```
+
+You should see a `dist/client` folder containing `_shell.html` and an `assets` folder.
+
+### 3. Create the site on Render
+
+1. Go to <https://dashboard.render.com> and sign in with GitHub.
+2. Click **New +** and choose **Static Site**.
+3. Pick this GitHub repository and click **Connect**.
+
+### 4. Fill in the build settings
+
+| Field | Value |
+| --- | --- |
+| Name | `onur-sales` (anything you like) |
+| Branch | `main` |
+| Build Command | `npm install && npm run build` |
+| Publish Directory | `dist/client` |
+
+### 5. Add environment variables
+
+Under **Advanced → Add Environment Variable**, add these three (copy the values from the `.env` file in this repo):
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_SUPABASE_PROJECT_ID`
+
+These are public keys, so it's safe to use them in a static site.
+
+### 6. Make every page link work
+
+After the site is created, open it in Render, then go to **Redirects/Rewrites** and add:
+
+| Source | Destination | Action |
+| --- | --- | --- |
+| `/*` | `/_shell.html` | Rewrite |
+
+Without this, refreshing `/dashboard` or `/records` shows "Not Found".
+
+### 7. Deploy
+
+Click **Create Static Site** (or **Manual Deploy → Deploy latest commit**). When it finishes, open the `.onrender.com` link and sign in with your ONUR account.
+
+### 8. Updating later
+
+Every push to `main` on GitHub rebuilds and redeploys the site automatically.
