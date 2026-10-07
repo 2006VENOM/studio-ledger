@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  BarChart3,
   CalendarDays,
   Download,
   LogOut,
@@ -285,6 +286,9 @@ function Dashboard() {
             <h1 className="mt-1 truncate font-display text-xl uppercase sm:text-3xl">ONUR CO-OPPORATION</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="icon" aria-label="Profit and loss charts" title="Profit & loss">
+              <Link to="/reports"><BarChart3 /></Link>
+            </Button>
             <Button variant="outline" size="icon" onClick={exportDoc} aria-label="Export report" title="Export report">
               <Download />
             </Button>
