@@ -24,6 +24,7 @@ export type Database = {
           id: string
           qty: number
           receipt_path: string | null
+          unit: string | null
           unit_price: number
           user_id: string
         }
@@ -36,6 +37,7 @@ export type Database = {
           id: string
           qty?: number
           receipt_path?: string | null
+          unit?: string | null
           unit_price?: number
           user_id: string
         }
@@ -48,6 +50,7 @@ export type Database = {
           id?: string
           qty?: number
           receipt_path?: string | null
+          unit?: string | null
           unit_price?: number
           user_id?: string
         }

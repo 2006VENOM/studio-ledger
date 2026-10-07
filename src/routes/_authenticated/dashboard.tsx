@@ -54,7 +54,7 @@ const PRODUCTS = [
   { name: "Double-Sided Beanie", price: 2500, code: "ONR-DB-05", image: beanieImage },
 ] as const;
 
-const EXPENSE_CATEGORIES = ["Material Purchased", "Graphics Purchased", "Accessories", "Transportation"] as const;
+const EXPENSE_CATEGORIES = ["Material Purchased", "Graphics Purchased", "Transportation"] as const;
 type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 type Category = "Sales" | ExpenseCategory;
 
@@ -68,6 +68,7 @@ type EntryRow = {
   unit_price: number;
   created_at: string;
   deleted_at: string | null;
+  unit: string | null;
 };
 
 type LocalEntry = { id: string; category: Category; date: string; description: string; qty: number; price: number };
@@ -93,6 +94,7 @@ function Dashboard() {
   const [expenseDescription, setExpenseDescription] = useState("");
   const [expensePrice, setExpensePrice] = useState("");
   const [expenseQty, setExpenseQty] = useState("1");
+  const [materialType, setMaterialType] = useState<"Cloth" | "Other">("Cloth");
   const [expenseDate, setExpenseDate] = useState(today());
   const [busy, setBusy] = useState(false);
 
@@ -101,7 +103,7 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("entries")
-        .select("id,user_id,category,entry_date,description,qty,unit_price,created_at,deleted_at")
+        .select("id,user_id,category,entry_date,description,qty,unit_price,created_at,deleted_at,unit")
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -201,15 +203,18 @@ function Dashboard() {
     event.preventDefault();
     if (!user) return;
     const parsedPrice = Number(expensePrice);
-    const parsedQty = Number(expenseQty);
+    const isMaterial = expenseCategory === "Material Purchased";
+    const parsedQty = isMaterial ? Number(expenseQty) : 1;
+    const unit = isMaterial ? (materialType === "Cloth" ? "yards" : "pcs") : null;
     if (!expenseDescription.trim() || parsedPrice < 0 || parsedQty <= 0) return;
     const { error } = await supabase.from("entries").insert({
       id: crypto.randomUUID(),
       user_id: user.id,
       category: expenseCategory,
       entry_date: expenseDate,
-      description: expenseDescription.trim(),
+      description: isMaterial ? `${materialType === "Cloth" ? "Cloth" : "Other"}: ${expenseDescription.trim()}` : expenseDescription.trim(),
       qty: parsedQty,
+      unit,
       unit_price: parsedPrice,
     });
     if (error) return;
@@ -343,17 +348,41 @@ function Dashboard() {
                       {EXPENSE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
                     </select>
                   </label>
-                  <label className="block text-xs font-semibold uppercase text-muted-foreground">Description
-                    <input className="tech-input mt-1" value={expenseDescription} onChange={(event) => setExpenseDescription(event.target.value)} placeholder="What did you buy?" required />
+                  {expenseCategory === "Material Purchased" && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">Material type</p>
+                      <div className="mt-1 grid grid-cols-2 border border-border">
+                        {(["Cloth", "Other"] as const).map((t) => (
+                          <button key={t} type="button" onClick={() => setMaterialType(t)}
+                            className={`h-10 font-mono text-xs uppercase ${materialType === t ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                            {t === "Cloth" ? "Cloth (yards)" : "Other (pieces)"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <label className="block text-xs font-semibold uppercase text-muted-foreground">
+                    {expenseCategory === "Transportation" ? "Trip details" : expenseCategory === "Graphics Purchased" ? "Design / graphic" : materialType === "Cloth" ? "Cloth name / colour" : "Item name"}
+                    <input className="tech-input mt-1" value={expenseDescription} onChange={(event) => setExpenseDescription(event.target.value)} required
+                      placeholder={expenseCategory === "Transportation" ? "e.g. Yaba market to studio" : expenseCategory === "Graphics Purchased" ? "e.g. ONUR logo print" : materialType === "Cloth" ? "e.g. Black material" : "e.g. Joggers rope"} />
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block text-xs font-semibold uppercase text-muted-foreground">Quantity
-                      <input className="tech-input mt-1" type="number" min="0.01" step="any" value={expenseQty} onChange={(event) => setExpenseQty(event.target.value)} required />
-                    </label>
-                    <label className="block text-xs font-semibold uppercase text-muted-foreground">Unit price
+                  {expenseCategory === "Material Purchased" ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block text-xs font-semibold uppercase text-muted-foreground">{materialType === "Cloth" ? "Yards" : "Quantity"}
+                        <input className="tech-input mt-1" type="number" min="0.01" step="any" value={expenseQty} onChange={(event) => setExpenseQty(event.target.value)} required />
+                      </label>
+                      <label className="block text-xs font-semibold uppercase text-muted-foreground">{materialType === "Cloth" ? "Price per yard" : "Price each"}
+                        <input className="tech-input mt-1" type="number" min="0" value={expensePrice} onChange={(event) => setExpensePrice(event.target.value)} placeholder="₦0" required />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="block text-xs font-semibold uppercase text-muted-foreground">{expenseCategory === "Transportation" ? "Fare paid" : "Amount paid"}
                       <input className="tech-input mt-1" type="number" min="0" value={expensePrice} onChange={(event) => setExpensePrice(event.target.value)} placeholder="₦0" required />
                     </label>
-                  </div>
+                  )}
+                  {expenseCategory === "Material Purchased" && Number(expenseQty) > 0 && Number(expensePrice) > 0 && (
+                    <p className="font-mono text-xs text-muted-foreground">Total: <span className="text-primary">{naira(Number(expenseQty) * Number(expensePrice))}</span></p>
+                  )}
                   <label className="block text-xs font-semibold uppercase text-muted-foreground">Date
                     <input className="tech-input mt-1" type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} required />
                   </label>
@@ -372,7 +401,7 @@ function Dashboard() {
                         <ReceiptText className="h-4 w-4 text-primary" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold">{entry.description}</p>
-                          <p className="text-[10px] uppercase text-muted-foreground">{entry.category} · {entry.entry_date}</p>
+                          <p className="text-[10px] uppercase text-muted-foreground">{entry.category} · {entry.entry_date}{entry.unit ? ` · ${entry.qty} ${entry.unit} × ${naira(entry.unit_price)}` : ""}</p>
                         </div>
                         <span className="font-mono text-xs">{naira(entry.qty * entry.unit_price)}</span>
                         <Button variant="ghost" size="icon" onClick={() => deleteEntry(entry.id)} aria-label={`Delete ${entry.description}`}><Trash2 /></Button>
