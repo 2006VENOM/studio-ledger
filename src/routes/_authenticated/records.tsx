@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/records")({
   component: RecordsPage,
 });
 
-const CATEGORIES = ["Sales", "Material Purchased", "Graphics Purchased", "Accessories", "Transportation"];
+const CATEGORIES = ["Sales", "Material Purchased", "Graphics Purchased", "Transportation"];
 const naira = (value: number) => `₦${value.toLocaleString("en-NG")}`;
 
 type Row = {
@@ -32,6 +32,7 @@ type Row = {
   unit_price: number;
   created_at: string;
   receipt_path: string | null;
+  unit: string | null;
 };
 
 function RecordsPage() {
@@ -50,7 +51,7 @@ function RecordsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("entries")
-        .select("id,category,entry_date,description,qty,unit_price,created_at,receipt_path")
+        .select("id,category,entry_date,description,qty,unit_price,created_at,receipt_path,unit")
         .is("deleted_at", null)
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false });
@@ -151,7 +152,7 @@ function RecordsPage() {
                 <p className="truncate font-semibold">{r.description}</p>
                 <p className="text-[10px] uppercase text-muted-foreground">{r.category} · {r.entry_date}</p>
                 <p className="mt-1 font-mono text-xs text-muted-foreground">
-                  {r.qty} × {naira(r.unit_price)} = <span className={r.category === "Sales" ? "text-primary" : "text-destructive"}>{naira(r.qty * r.unit_price)}</span>
+                  {r.unit || r.category === "Sales" ? <>{r.qty}{r.unit ? ` ${r.unit}` : ""} × {naira(r.unit_price)} = </> : null}<span className={r.category === "Sales" ? "text-primary" : "text-destructive"}>{naira(r.qty * r.unit_price)}</span>
                 </p>
                 <p className="font-mono text-[10px] text-muted-foreground">Recorded {new Date(r.created_at).toLocaleString("en-NG")}</p>
               </div>
